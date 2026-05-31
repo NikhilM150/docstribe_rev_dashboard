@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>DocStribe · Patient Intelligence Dashboard</title>
+  <meta name="description" content="CXO-level patient analytics — Claude AI chatbot, CEO briefing, risk stratification, IP admission, revenue — dynamically from Excel."/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif'],display:['Space Grotesk','sans-serif']}}}}</script>
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:#060a14;font-family:'Inter',sans-serif;color:#e2e8f0;min-height:100vh}
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:rgba(15,23,42,.5)}
+    ::-webkit-scrollbar-thumb{background:rgba(99,102,241,.4);border-radius:4px}
+    ::-webkit-scrollbar-thumb:hover{background:rgba(99,102,241,.7)}
+
+    .glass{background:rgba(11,18,36,.78);backdrop-filter:blur(18px);border:1px solid rgba(99,102,241,.18);border-radius:18px;box-shadow:0 4px 30px rgba(0,0,0,.35)}
+    .bg-mesh{position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:radial-gradient(ellipse 60% 40% at 20% 10%,rgba(99,102,241,.07) 0%,transparent 60%),
+                radial-gradient(ellipse 50% 50% at 80% 80%,rgba(34,211,238,.05) 0%,transparent 55%),
+                radial-gradient(ellipse 40% 30% at 60% 30%,rgba(244,114,182,.04) 0%,transparent 50%)}
+
+    .kpi-card{transition:transform .25s ease,box-shadow .25s ease;cursor:default}
+    .kpi-card:hover{transform:translateY(-5px);box-shadow:0 18px 40px rgba(0,0,0,.45),0 0 30px rgba(99,102,241,.18)}
+
+    .drop-zone{border:2px dashed rgba(99,102,241,.35);border-radius:20px;transition:all .25s ease;cursor:pointer}
+    .drop-zone:hover,.drop-zone.drag-over{border-color:rgba(99,102,241,.75);background:rgba(99,102,241,.08)}
+
+    .badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;font-size:.7rem;font-weight:600;letter-spacing:.02em}
+    .badge-rising{background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3)}
+    .badge-medium{background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3)}
+    .badge-high{background:rgba(251,146,60,.15);color:#fb923c;border:1px solid rgba(251,146,60,.3)}
+    .badge-critical{background:rgba(244,63,94,.15);color:#f43f5e;border:1px solid rgba(244,63,94,.3)}
+    .badge-unknown{background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid rgba(100,116,139,.3)}
+
+    .ptable{border-collapse:separate;border-spacing:0;width:100%}
+    .ptable thead th{background:rgba(99,102,241,.12);color:#818cf8;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;padding:11px 14px;white-space:nowrap}
+    .ptable thead th:first-child{border-radius:10px 0 0 10px}
+    .ptable thead th:last-child{border-radius:0 10px 10px 0}
+    .ptable tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .18s}
+    .ptable tbody tr:hover{background:rgba(99,102,241,.07)}
+    .ptable tbody td{padding:9px 14px;color:#cbd5e1;font-size:.8rem;vertical-align:middle}
+
+    .mptable{border-collapse:separate;border-spacing:0;width:100%}
+    .mptable thead th{background:rgba(99,102,241,.1);color:#818cf8;font-size:.62rem;letter-spacing:.07em;text-transform:uppercase;padding:7px 10px;white-space:nowrap}
+    .mptable thead th:first-child{border-radius:8px 0 0 8px}
+    .mptable thead th:last-child{border-radius:0 8px 8px 0}
+    .mptable tbody tr{border-bottom:1px solid rgba(255,255,255,.04)}
+    .mptable tbody tr:hover{background:rgba(99,102,241,.06)}
+    .mptable tbody td{padding:7px 10px;color:#94a3b8;font-size:.72rem;vertical-align:middle}
+
+    .pbar{height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
+    .pbar-fill{height:100%;border-radius:2px;transition:width 1.2s ease}
+
+    .grad-text{background:linear-gradient(135deg,#818cf8 0%,#22d3ee 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .grad-text-warm{background:linear-gradient(135deg,#f472b6 0%,#fb923c 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+
+    .stat-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:.72rem}
+    .sec-label{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:#475569;font-weight:500;margin-bottom:10px}
+
+    @keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}
+    .pulse-dot{animation:pulseDot 2s ease-in-out infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spin{animation:spin .8s linear infinite}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+    .fade-up{animation:fadeUp .45s ease forwards}
+    .fade-up-2{animation:fadeUp .45s .1s ease both}
+
+    /* ── AI Insights Panel ── */
+    .briefing-card{
+      border:1px solid rgba(129,140,248,.3);
+      background:rgba(9,14,30,.95);
+      border-radius:18px;
+      overflow:hidden;
+    }
+    .briefing-header{
+      background:linear-gradient(135deg,rgba(99,102,241,.18),rgba(34,211,238,.07));
+      border-bottom:1px solid rgba(99,102,241,.2);
+      padding:16px 24px;
+    }
+    .briefing-body ul{list-style:none;padding:0;margin:6px 0}
+    .briefing-body ol{list-style:none;padding:0;margin:6px 0;counter-reset:item}
+    .briefing-body li{display:flex;align-items:flex-start;gap:8px;margin-bottom:5px;color:#cbd5e1;font-size:.82rem;line-height:1.5}
+    .briefing-body p{color:#94a3b8;font-size:.82rem;line-height:1.6;margin:4px 0}
+    .briefing-body strong{color:#e2e8f0;font-weight:600}
+    .briefing-body h2{color:#e2e8f0;font-size:.95rem;font-weight:700;font-family:'Space Grotesk',sans-serif;margin:14px 0 6px}
+    .briefing-body h3{color:#cbd5e1;font-size:.85rem;font-weight:600;font-family:'Space Grotesk',sans-serif;margin:10px 0 5px}
+
+    /* ── Chat Panel ── */
+    .chat-panel{
+      position:fixed;right:0;top:0;bottom:0;width:440px;
+      background:rgba(7,11,22,.97);backdrop-filter:blur(24px);
+      border-left:1px solid rgba(99,102,241,.2);
+      box-shadow:-8px 0 40px rgba(0,0,0,.5);
+      display:flex;flex-direction:column;z-index:200;
+      transform:translateX(100%);
+      transition:transform .3s cubic-bezier(0.4,0,0.2,1);
+    }
+    .chat-panel.open{transform:translateX(0)}
+    @media(max-width:480px){.chat-panel{width:100vw}}
+
+    .chat-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(2px);z-index:199;opacity:0;pointer-events:none;transition:opacity .3s}
+    .chat-backdrop.open{opacity:1;pointer-events:all}
+
+    .chat-fab{
+      position:fixed;bottom:28px;right:28px;z-index:198;
+      width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;
+      background:linear-gradient(135deg,#6366f1,#4f46e5);
+      box-shadow:0 4px 20px rgba(99,102,241,.5);
+      display:flex;align-items:center;justify-content:center;font-size:1.4rem;
+      transition:transform .2s ease,box-shadow .2s ease;
+    }
+    .chat-fab:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(99,102,241,.7)}
+    .chat-fab .notif{position:absolute;top:4px;right:4px;width:12px;height:12px;background:#34d399;border-radius:50%;border:2px solid #060a14}
+
+    .msg-user{display:flex;justify-content:flex-end;margin-bottom:12px}
+    .msg-user .bubble{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;padding:10px 14px;border-radius:16px 16px 4px 16px;font-size:.82rem;line-height:1.5;max-width:85%}
+    .msg-bot{display:flex;align-items:flex-start;gap:8px;margin-bottom:14px}
+    .msg-bot .avatar{width:28px;height:28px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:.9rem}
+    .msg-bot .bubble{background:rgba(15,23,42,.9);border:1px solid rgba(99,102,241,.2);color:#cbd5e1;padding:12px 14px;border-radius:4px 16px 16px 16px;font-size:.82rem;line-height:1.6;max-width:92%}
+    .msg-bot .bubble strong{color:#e2e8f0}
+    .msg-bot .bubble ul{list-style:none;padding:0;margin:4px 0}
+    .msg-bot .bubble li{display:flex;align-items:flex-start;gap:6px;margin-bottom:3px;font-size:.8rem}
+    .msg-bot .bubble p{margin:3px 0}
+
+    .chat-input{background:rgba(15,23,42,.8);border:1px solid rgba(99,102,241,.25);border-radius:12px;color:#e2e8f0;font-size:.83rem;padding:10px 14px;outline:none;resize:none;font-family:inherit;width:100%;transition:border-color .2s}
+    .chat-input:focus{border-color:rgba(99,102,241,.5)}
+    .chat-input::placeholder{color:#475569}
+
+    .chip{display:inline-flex;padding:5px 12px;border-radius:99px;font-size:.72rem;cursor:pointer;white-space:nowrap;transition:all .2s;border:1px solid rgba(99,102,241,.25);background:rgba(99,102,241,.08);color:#818cf8}
+    .chip:hover{background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5);color:#a5b4fc}
+
+    .hi-chip{display:inline-flex;flex-direction:column;align-items:center;padding:8px 12px;border-radius:12px;min-width:70px}
+
+    @keyframes typing{0%,60%,100%{opacity:.3}30%{opacity:1}}
+    .typing-dot{width:6px;height:6px;border-radius:50%;background:#818cf8;display:inline-block;margin:0 2px;animation:typing 1.2s ease-in-out infinite}
+    .typing-dot:nth-child(2){animation-delay:.2s}
+    .typing-dot:nth-child(3){animation-delay:.4s}
+
+    /* API key settings area */
+    .key-settings{background:rgba(8,12,24,.95);border-bottom:1px solid rgba(99,102,241,.12);padding:10px 16px}
+    .key-input{background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.2);border-radius:10px;color:#e2e8f0;font-size:.75rem;padding:8px 12px;outline:none;font-family:'Inter',monospace;width:100%;transition:border-color .2s}
+    .key-input:focus{border-color:rgba(99,102,241,.5)}
+    .key-input::placeholder{color:#374151;font-family:'Inter',sans-serif}
+
+    section[id]{scroll-margin-top:72px}
+  </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<div id="root" style="position:relative;z-index:1"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+/* ═══════════════════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════════════════ */
+const RISK_COLORS = { rising:'#34d399', medium:'#fbbf24', high:'#fb923c', critical:'#f43f5e' };
+const CHART_PAL   = ['#818cf8','#34d399','#fb923c','#f472b6','#38bdf8','#a78bfa','#fbbf24','#4ade80','#22d3ee','#e879f9'];
+const TTip = { backgroundColor:'rgba(8,14,28,.96)',borderColor:'rgba(99,102,241,.3)',borderWidth:1,titleColor:'#e2e8f0',bodyColor:'#94a3b8',padding:12,cornerRadius:9,titleFont:{family:'Space Grotesk',weight:'600'},bodyFont:{family:'Inter'} };
+const LegendLabels = { color:'#94a3b8',font:{family:'Inter',size:11},boxWidth:11,padding:14 };
+
+const CHAT_SYSTEM = `You are DocStribe Patient Intelligence AI — a precise medical analytics assistant embedded in a CXO-level healthcare dashboard in India. You receive structured JSON data from a real patient cohort (Patients, Visits, Visit Actions, Call History sheets). Answer questions using ONLY this data.
+
+Rules:
+- Be concise (under 220 words unless analysis demands more)
+- Quote exact numbers from the JSON context
+- Format currency in Indian Rupees (₹, Cr, L)
+- Use **bold** for key numbers and risk flags
+- Bullet lists for patient enumeration
+- End with 1-2 specific, actionable clinical recommendations
+- Never fabricate data not present in the context`;
+
+const BRIEFING_SYSTEM = `You are a senior medical intelligence analyst preparing a CEO/CXO executive briefing for a hospital leadership team in India.
+
+Generate a structured, data-driven briefing in markdown using ONLY the patient cohort JSON provided. Follow this exact structure:
+
+## Executive Summary
+(2-3 sentences capturing the most critical headline findings)
+
+## 🚨 Critical Risk Alerts
+(Top 3 risks with exact patient counts and percentages)
+
+## 💰 Revenue Opportunity
+(Total potential in ₹, top 3 action-type sources)
+
+## 📞 Patient Engagement
+(Call connection rate, gaps, what it means)
+
+## 🏥 IP Admission Intelligence
+(Flagged count, rate, operational significance)
+
+## ✅ Immediate Action Items
+1. (Specific action with numbers)
+2. (Specific action with numbers)
+3. (Specific action with numbers)
+
+Use executive language. Bold every key metric. All data must come from the provided JSON.`;
+
+const SUGGESTIONS = [
+  { label:'🔴 Critical patients', query:'Show me all critical patients' },
+  { label:'⚠️ High-risk, no follow-up', query:'Which high-risk patients have no follow-up scheduled?' },
+  { label:'🩺 Diabetic → Cardiology', query:'Show diabetic patients referred to cardiology' },
+  { label:'📞 Missed calls', query:'Patients with missed calls or no call response' },
+  { label:'💰 Revenue potential', query:'What is the total revenue potential?' },
+  { label:'🏥 IP candidates', query:'Show all IP admission candidates' },
+  { label:'📋 Care gaps', query:'Patients with care gaps' },
+  { label:'👩 Elderly women', query:'Female patients over 60' },
+  { label:'🫀 Multiple chronic', query:'Patients with multiple chronic diseases' },
+  { label:'📊 Overview', query:'Give me a dashboard overview' },
+  { label:'🦴 Orthopaedics', query:'Patients in orthopaedics' },
+  { label:'🧪 Pending labs', query:'Patients with pending lab tests' },
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   UTILITY
+═══════════════════════════════════════════════════════════════ */
+function fmtINR(v){
+  v=parseFloat(v)||0;
+  if(v>=10000000) return `₹${(v/10000000).toFixed(2)} Cr`;
+  if(v>=100000)   return `₹${(v/100000).toFixed(2)} L`;
+  if(v>=1000)     return `₹${(v/1000).toFixed(1)} K`;
+  return `₹${Math.round(v).toLocaleString('en-IN')}`;
+}
+function monthLabel(k){ const [y,m]=k.split('-'); return new Date(y,m-1).toLocaleString('default',{month:'short',year:'2-digit'}); }
+
+/* ═══════════════════════════════════════════════════════════════
+   DATA PROCESSOR
+═══════════════════════════════════════════════════════════════ */
+function processWorkbook(wb){
+  const toJson=(name)=>{ const ws=wb.Sheets[name]; return ws?XLSX.utils.sheet_to_json(ws):[]; };
+  const patients=toJson('Patients'), visits=toJson('Visits'), actions=toJson('Visit Actions'), calls=toJson('Call History');
+  patients.forEach(p=>{ try{ p._i=JSON.parse(p['Clinical Summary']||'{}'); }catch{ p._i={}; } });
+
+  // Cross-sheet index
+  const patientIndex={};
+  patients.forEach(p=>{ patientIndex[p['Patient ID']]={ raw:p, visits:[], actions:[], calls:[] }; });
+  visits.forEach(v=>{ const e=patientIndex[v['Patient ID']]; if(e) e.visits.push(v); });
+  actions.forEach(a=>{ const e=patientIndex[a['Patient ID']]; if(e) e.actions.push(a); });
+  calls.forEach(c=>{ const e=patientIndex[c['Patient ID']]; if(e) e.calls.push(c); });
+
+  const riskCounts={}, ipCounts={IP:0,Safe:0}, genderCounts={};
+  const ageGroups={'0–18':0,'19–35':0,'36–50':0,'51–65':0,'65+':0};
+  patients.forEach(p=>{
+    const risk=p._i?.risk_stratification?.risk_category||'unknown';
+    riskCounts[risk]=(riskCounts[risk]||0)+1;
+    if(p._i?.ip_potential?.ip_potential_flag) ipCounts.IP++; else ipCounts.Safe++;
+    const g=(p.Gender||'Unknown').toUpperCase(); genderCounts[g]=(genderCounts[g]||0)+1;
+    const age=p.Age||0;
+    if(age<=18) ageGroups['0–18']++; else if(age<=35) ageGroups['19–35']++; else if(age<=50) ageGroups['36–50']++; else if(age<=65) ageGroups['51–65']++; else ageGroups['65+']++;
+  });
+
+  const deptMap={}, monthVisits={};
+  visits.forEach(v=>{
+    let dept=(v.Department||'Unknown').toUpperCase().trim();
+    if(dept.includes('ORTHO')) dept='ORTHOPAEDICS';
+    else if(dept.includes('GASTRO')&&dept.includes('MEDICAL')) dept='MED. GASTROENTEROLOGY';
+    else if(dept.startsWith('ENT')) dept='ENT';
+    deptMap[dept]=(deptMap[dept]||0)+1;
+    const d=new Date(v['Visit Date']||'');
+    if(!isNaN(d)){ const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; monthVisits[k]=(monthVisits[k]||0)+1; }
+  });
+  const topDepts=Object.entries(deptMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const monthVisitSorted=Object.entries(monthVisits).sort((a,b)=>a[0].localeCompare(b[0]));
+
+  const taskMap={}, urgMap={}, statusMap={}, revByType={}; let totalRev=0;
+  actions.forEach(a=>{
+    const tt=a['Task Type']||'Unknown'; taskMap[tt]=(taskMap[tt]||0)+1;
+    const urg=(a['Urgency']||'unknown').toLowerCase(); urgMap[urg]=(urgMap[urg]||0)+1;
+    const st=a['Status']||'unknown'; statusMap[st]=(statusMap[st]||0)+1;
+    const rev=parseFloat(a['Revenue Potential']||0)||0; totalRev+=rev;
+    if(rev>0) revByType[tt]=(revByType[tt]||0)+rev;
+  });
+
+  const callStatusMap={}, callReasonMap={}, callMonthMap={};
+  calls.forEach(c=>{
+    const raw=(c['Call Status']||'unknown').toLowerCase();
+    const cs=raw==='connected'?'Connected':raw==='not_connected'?'Not Connected':raw==='resolved'?'Resolved':c['Call Status'];
+    callStatusMap[cs]=(callStatusMap[cs]||0)+1;
+    const rr=c['Call Reason']||'unknown';
+    const label={visited:'Visited',follow_up:'Follow-Up',not_interested:'Not Interested',couldnt_reach:"Couldn't Reach",booking:'Booking',cost_help:'Cost Help',second_opinion:'2nd Opinion',on_medications:'On Medications','Disposition Escalation':'Escalation',task_transfer:'Task Transfer',not_advised:'Not Advised',insurance_loan_pending:'Insurance/Loan'}[rr]||rr;
+    callReasonMap[label]=(callReasonMap[label]||0)+1;
+    const cd=new Date(c['Called At']||'');
+    if(!isNaN(cd)){ const k=`${cd.getFullYear()}-${String(cd.getMonth()+1).padStart(2,'0')}`; callMonthMap[k]=(callMonthMap[k]||0)+1; }
+  });
+  const connected=callStatusMap['Connected']||0, totalCalls=calls.length;
+
+  const patientRows=patients.map(p=>({
+    id:p['Patient ID'],name:p['Name'],age:p['Age'],gender:p['Gender'],
+    risk:p._i?.risk_stratification?.risk_category||'unknown',
+    score:p._i?.risk_stratification?.overall_risk_score||0,
+    ipFlag:!!p._i?.ip_potential?.ip_potential_flag,
+    dept:p._i?.next_follow_up?.location||'—',
+    gaps:p._i?.care_gaps_present?.gaps?.length||0,
+    status:p['Workflow Status']||'—',
+  }));
+
+  return {
+    summary:{ totalPatients:patients.length,totalVisits:visits.length,totalActions:actions.length,totalCalls,connected,connectRate:totalCalls>0?((connected/totalCalls)*100).toFixed(1):0,ipCount:ipCounts.IP,ipRate:patients.length>0?((ipCounts.IP/patients.length)*100).toFixed(1):0,totalRevenue:totalRev },
+    riskCounts,ipCounts,genderCounts,ageGroups,topDepts,monthVisitSorted,
+    taskMap,urgMap,statusMap,revByType,callStatusMap,callReasonMap,callMonthMap,
+    patientRows,patientIndex,
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RULE-BASED NLP (used for fallback + patient filtering for Claude context)
+═══════════════════════════════════════════════════════════════ */
+function runNLPQuery(rawText,data){
+  const { patientRows,patientIndex,summary:S,riskCounts,revByType }=data;
+  const q=rawText.toLowerCase().replace(/[?!.,'"\u201c\u201d]/g,' ').replace(/\s+/g,' ').trim();
+
+  if(/\brevenue\b|\bearnings?\b/.test(q)&&!/patient|show|list|who|which|with/.test(q)){
+    const top=Object.entries(revByType).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    return { type:'stats',narrative:`Total revenue potential is **${fmtINR(S.totalRevenue)}** across ${S.totalActions} clinical actions.\n\nTop sources — ${top.map(([k,v])=>`${k}: ${fmtINR(v)}`).join(' · ')||'none'}.`,highlights:[{label:'Total Revenue',value:fmtINR(S.totalRevenue),color:'#f472b6'},...top.slice(0,3).map(([k,v])=>({label:k,value:fmtINR(v),color:'#818cf8'}))],patients:[],total:0,appliedFilters:[] };
+  }
+  if(/^(overview|summary|dashboard|give me an overview|tell me|all stats)/.test(q)){
+    const hiRisk=(riskCounts.high||0)+(riskCounts.critical||0);
+    return { type:'stats',narrative:`**Cohort Overview:** ${S.totalPatients} patients · **${hiRisk}** high/critical risk (${((hiRisk/S.totalPatients)*100).toFixed(0)}%) · **${S.ipCount}** IP candidates (${S.ipRate}%) · ${S.totalVisits} visits · ${S.totalActions} actions · Call rate **${S.connectRate}%** · Revenue **${fmtINR(S.totalRevenue)}**.`,highlights:[{label:'Patients',value:S.totalPatients,color:'#818cf8'},{label:'High/Critical',value:hiRisk,color:'#f43f5e'},{label:'IP',value:S.ipCount,color:'#fb923c'},{label:'Revenue',value:fmtINR(S.totalRevenue),color:'#f472b6'}],patients:[],total:0,appliedFilters:[] };
+  }
+
+  let candidates=[...patientRows];
+  const filters=[];
+  const applyF=(pred,label)=>{ candidates=candidates.filter(pred); filters.push(label); };
+  const inIntel=(p,re)=>{ const r=patientIndex[p.id]?.raw; return r?re.test(JSON.stringify(r._i||{}).toLowerCase()):false; };
+  const inVisit=(p,re)=>{ const d=patientIndex[p.id]; return d?d.visits.some(v=>re.test((v.Department||'').toLowerCase())):false; };
+  const inAction=(p,tRe,sRe)=>{ const d=patientIndex[p.id]; return d?d.actions.some(a=>(!tRe||tRe.test((a['Task Type']||'').toLowerCase()))&&(!sRe||sRe.test((a['Status']||'').toLowerCase()))):false; };
+  const inCall=(p,sRe)=>{ const d=patientIndex[p.id]; return d?d.calls.some(c=>sRe.test((c['Call Status']||'').toLowerCase())):false; };
+
+  if(/\bcritical\b/.test(q)) applyF(p=>p.risk==='critical','Critical risk');
+  if(/\bhigh[\s-]?risk\b|\bvery high\b|(^|\b)high\b.*(patient|risk)/i.test(q)&&!/critical/.test(q)) applyF(p=>p.risk==='high','High risk');
+  if(/\bmedium[\s-]?risk\b/.test(q)) applyF(p=>p.risk==='medium','Medium risk');
+  if(/\brising\b/.test(q)) applyF(p=>p.risk==='rising','Rising risk');
+  if(/\bip\b|\bip[\s-]?potential\b|\binpatient\b|\badmission\s+candidate\b|\badmit\b/.test(q)) applyF(p=>p.ipFlag,'IP admission potential');
+  if(/no[\s-]?follow[\s-]?up|without\s+follow|missing\s+follow|no\s+scheduled\s+follow/.test(q)){
+    applyF(p=>{ const d=patientIndex[p.id]; if(!d) return true; return !d.actions.some(a=>/follow/i.test(a['Task Type']||'')&&/pending|scheduled/i.test(a['Status']||'')); },'No follow-up scheduled');
+  }
+  if(/diabet/.test(q)) applyF(p=>inIntel(p,/diabet|dm\b|t2dm|t1dm|hba1c/),'Diabetes');
+  if(/hypertens|htn\b|high blood pressure/.test(q)) applyF(p=>inIntel(p,/hypertens|htn\b|high blood pressure/),'Hypertension');
+  if(/thyroid/.test(q)) applyF(p=>inIntel(p,/thyroid/),'Thyroid');
+  if(/kidney|renal/.test(q)) applyF(p=>inIntel(p,/kidney|renal|nephro|ckd/),'Kidney/Renal');
+  if(/cardiac\b|heart\s+disease|coronary/.test(q)) applyF(p=>inIntel(p,/cardiac|coronary|heart\s+disease|cad\b/),'Cardiac');
+  if(/cancer|tumor|tumour|malign|oncol/.test(q)) applyF(p=>inIntel(p,/cancer|tumor|tumour|malign|oncol/),'Oncology');
+  if(/pulmon|copd|asthma|lung|breath/.test(q)) applyF(p=>inIntel(p,/pulmon|copd|asthma|lung|breath/),'Pulmonary');
+  if(/cardio/.test(q)&&!/cardiac\b/.test(q)) applyF(p=>inVisit(p,/cardio/)||inIntel(p,/cardio/),'Cardiology');
+  if(/ortho/.test(q)) applyF(p=>inVisit(p,/ortho/),'Orthopaedics');
+  if(/neuro/.test(q)) applyF(p=>inVisit(p,/neuro/),'Neurology');
+  if(/gastro/.test(q)) applyF(p=>inVisit(p,/gastro/),'Gastroenterology');
+  if(/\bent\b|ear\s+nose|head.*neck/.test(q)) applyF(p=>inVisit(p,/ent|ear|neck/),'ENT');
+  if(/nephro/.test(q)&&!/kidney|renal/.test(q)) applyF(p=>inVisit(p,/nephro/),'Nephrology');
+  if(/gynaecol|gynecol|obstet|obgyn/.test(q)) applyF(p=>inVisit(p,/gynaecol|gynecol|obstet/),'OBG');
+  if(/urology|urolog/.test(q)) applyF(p=>inVisit(p,/urology|urolog/),'Urology');
+  if(/refer/.test(q)) applyF(p=>inAction(p,/referral/,null),'Has referral');
+  if(/missed\s+call|not\s+connect|couldn.t\s+reach|no\s+call\s+response|unreachable/.test(q)){
+    applyF(p=>{ const d=patientIndex[p.id]; if(!d) return false; return d.calls.length===0||inCall(p,/not_connected/); },'Missed/not-connected calls');
+  }
+  if(/no\s+calls?|never\s+called|not\s+called|zero\s+calls?/.test(q)) applyF(p=>{ const d=patientIndex[p.id]; return !d||d.calls.length===0; },'No call history');
+  if(/care\s+gap|gap\s+in\s+care/.test(q)) applyF(p=>p.gaps>0,'Has care gaps');
+  if(/\bchronic\b/.test(q)&&!/multiple/.test(q)) applyF(p=>patientIndex[p.id]?.raw?._i?.chronic_flag?.has_chronic_disease===true,'Chronic disease');
+  if(/multiple\s+chronic|comorbid|multi[\s-]?morbid/.test(q)) applyF(p=>patientIndex[p.id]?.raw?._i?.chronic_flag?.has_multiple_chronic_disease===true,'Multiple chronic');
+  if(/\bfemale\b|\bwomen\b|\bwoman\b/.test(q)) applyF(p=>(p.gender||'').toUpperCase()==='FEMALE','Female');
+  if(/\bmale\b|\bmen\b|\bman\b/.test(q)&&!/female|women|woman/.test(q)) applyF(p=>(p.gender||'').toUpperCase()==='MALE','Male');
+  const ageOver=q.match(/over\s+(\d+)|above\s+(\d+)|older\s+than\s+(\d+)|(\d+)\+\s*years?/);
+  if(ageOver||/\belderly\b|\bsenior\b|\bgeriatric\b/.test(q)){ const age=ageOver?parseInt(ageOver[1]||ageOver[2]||ageOver[3]||ageOver[4]):65; applyF(p=>(p.age||0)>=age,`Age ≥ ${age}`); }
+  const ageUnder=q.match(/under\s+(\d+)|below\s+(\d+)|younger\s+than\s+(\d+)|less\s+than\s+(\d+)\s*years?/);
+  if(ageUnder){ const age=parseInt(ageUnder[1]||ageUnder[2]||ageUnder[3]||ageUnder[4]); applyF(p=>(p.age||0)<age,`Age < ${age}`); }
+  if(/\bmedication|on\s+meds\b|\bprescribed\b/.test(q)) applyF(p=>inAction(p,/medication/,null),'Medication actions');
+  if(/\blab\s+test|blood\s+test|pathology|hba1c\b/.test(q)) applyF(p=>inAction(p,/lab/,null),'Lab tests');
+  if(/radiology|xray|x-ray|mri\b|ct\s+scan|ultrasound/.test(q)) applyF(p=>inAction(p,/radiology/,null),'Radiology');
+  if(/\bpending\b/.test(q)&&!/follow/.test(q)) applyF(p=>inAction(p,null,/pending/),'Has pending actions');
+  if(/\bnew\s+patient|\bfirst\s+visit/.test(q)) applyF(p=>{ const d=patientIndex[p.id]; return d&&d.visits.length===1; },'New patients');
+
+  const total=candidates.length;
+  const ipCount=candidates.filter(p=>p.ipFlag).length;
+  const critCount=candidates.filter(p=>p.risk==='critical').length;
+  const highCount=candidates.filter(p=>p.risk==='high').length;
+  const gapCount=candidates.filter(p=>p.gaps>0).length;
+  let groupRev=0;
+  candidates.forEach(p=>{ const d=patientIndex[p.id]; if(d) d.actions.forEach(a=>{ groupRev+=parseFloat(a['Revenue Potential']||0)||0; }); });
+
+  let narrative='';
+  if(total===0){
+    narrative=`No patients found matching that query. Try rephrasing or pick a quick suggestion.`;
+  } else if(filters.length===0){
+    narrative=`Showing all **${total} patients** in the cohort. Refine with specifics like *"critical patients"*.`;
+  } else {
+    narrative=`**${total} patient${total!==1?'s':''}** found · Filters: *${filters.join(' · ')}*.`;
+    const ins=[];
+    if(ipCount>0) ins.push(`**${ipCount}** IP admission flagged`);
+    if(critCount>0&&!filters.includes('Critical risk')) ins.push(`**${critCount}** critical risk`);
+    if(highCount>0&&!filters.includes('High risk')&&!filters.includes('Critical risk')) ins.push(`**${highCount}** high risk`);
+    if(gapCount>0) ins.push(`**${gapCount}** with care gaps`);
+    if(groupRev>0) ins.push(`**${fmtINR(groupRev)}** revenue potential`);
+    if(ins.length) narrative+=` Of these — ${ins.join(', ')}.`;
+  }
+
+  return {
+    type:'patient_list',patients:candidates.slice(0,50),total,narrative,appliedFilters:filters,
+    highlights:[
+      {label:'Patients Found',value:total,color:'#818cf8'},
+      ...(ipCount>0?[{label:'IP Potential',value:ipCount,color:'#f43f5e'}]:[]),
+      ...(groupRev>0?[{label:'Revenue',value:fmtINR(groupRev),color:'#f472b6'}]:[]),
+      ...(gapCount>0?[{label:'Care Gaps',value:gapCount,color:'#fbbf24'}]:[]),
+    ],
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CLAUDE API  (API key entered by user — never hardcoded)
+═══════════════════════════════════════════════════════════════ */
+async function callClaude(apiKey, system, userContent, maxTokens=1024){
+  const resp = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true',
+    },
+    body:JSON.stringify({
+      model:'claude-sonnet-4-5',
+      max_tokens:maxTokens,
+      system,
+      messages:[{ role:'user', content:userContent }],
+    }),
+  });
+  if(!resp.ok){
+    let errMsg=resp.statusText;
+    try{ const j=await resp.json(); errMsg=j?.error?.message||errMsg; }catch{}
+    if(resp.status===401) throw new Error('Invalid API key — check your Anthropic API key.');
+    if(resp.status===429) throw new Error('Rate limited — please wait a moment and try again.');
+    throw new Error(`Claude API error (${resp.status}): ${errMsg}`);
+  }
+  const json=await resp.json();
+  return json.content?.[0]?.text||'';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTEXT BUILDERS — dynamically from loaded Excel data
+═══════════════════════════════════════════════════════════════ */
+function buildQueryContext(query, data){
+  const { summary:S, riskCounts, topDepts, taskMap, urgMap, callStatusMap, callReasonMap, revByType, patientIndex, statusMap } = data;
+  const nlpResult = runNLPQuery(query, data);
+
+  const patients = nlpResult.patients.slice(0,12).map(p=>{
+    const pd = patientIndex[p.id];
+    const intel = pd?.raw?._i||{};
+    const conditions = [
+      ...(intel.clinical_condition?.risk_factors||[]),
+      ...(intel.operational_snapshot?.badges||[]),
+    ].filter(Boolean).slice(0,4);
+    const depts = [...new Set((pd?.visits||[]).map(v=>v.Department).filter(Boolean))].slice(0,3);
+    const urgentActions = (pd?.actions||[]).filter(a=>['critical','high'].includes((a.Urgency||'').toLowerCase())).slice(0,3).map(a=>({ type:a['Task Type'], title:a.Title, urgency:a.Urgency }));
+    const lastCall = pd?.calls?.length>0 ? pd.calls[pd.calls.length-1] : null;
+    return {
+      name:p.name, age:p.age, gender:p.gender,
+      riskLevel:p.risk, riskScore:`${p.score}/10`,
+      ipAdmission:p.ipFlag, careGaps:p.gaps, dept:p.dept,
+      conditions, depts, urgentActions,
+      lastCallStatus:lastCall?.['Call Status']||'No calls',
+      visitCount:pd?.visits?.length||0, actionCount:pd?.actions?.length||0,
+    };
+  });
+
+  return JSON.stringify({
+    cohort:{
+      n:S.totalPatients, visits:S.totalVisits, actions:S.totalActions,
+      risk:riskCounts, ip:{count:S.ipCount,rate:S.ipRate+'%'},
+      revenue:fmtINR(S.totalRevenue),
+      calls:{total:S.totalCalls,connected:S.connected,rate:S.connectRate+'%',statuses:callStatusMap},
+    },
+    departments:Object.fromEntries(topDepts.slice(0,7)),
+    actionTypes:taskMap, urgency:urgMap,
+    revenueByType:Object.fromEntries(Object.entries(revByType).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>[k,fmtINR(v)])),
+    callReasons:Object.fromEntries(Object.entries(callReasonMap).sort((a,b)=>b[1]-a[1]).slice(0,7)),
+    filteredPatients:{ totalMatching:nlpResult.total, filters:nlpResult.appliedFilters, showing:patients.length, patients },
+  });
+}
+
+function buildBriefingContext(data){
+  const { summary:S, riskCounts, topDepts, taskMap, urgMap, callStatusMap, callReasonMap, revByType, patientRows, statusMap } = data;
+  const critHigh = patientRows.filter(p=>['critical','high'].includes(p.risk)).length;
+  const gapPts   = patientRows.filter(p=>p.gaps>0).length;
+
+  return JSON.stringify({
+    overview:{ patients:S.totalPatients, visits:S.totalVisits, actions:S.totalActions, calls:S.totalCalls },
+    risk:{ ...riskCounts, highCriticalTotal:critHigh, highCriticalPct:((critHigh/S.totalPatients)*100).toFixed(1)+'%' },
+    ip:{ flagged:S.ipCount, rate:S.ipRate+'%' },
+    revenue:{
+      total:fmtINR(S.totalRevenue), totalRaw:S.totalRevenue,
+      byType:Object.fromEntries(Object.entries(revByType).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>[k,fmtINR(v)])),
+    },
+    actions:{ types:taskMap, urgency:urgMap, status:statusMap, highCritUrgent:(urgMap.high||0)+(urgMap.critical||0) },
+    calls:{ total:S.totalCalls, connected:S.connected, rate:S.connectRate+'%', statuses:callStatusMap, topReasons:Object.fromEntries(Object.entries(callReasonMap).sort((a,b)=>b[1]-a[1]).slice(0,6)) },
+    careGaps:{ count:gapPts, pct:((gapPts/S.totalPatients)*100).toFixed(1)+'%' },
+    departments:Object.fromEntries(topDepts.slice(0,8)),
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHART COMPONENT
+═══════════════════════════════════════════════════════════════ */
+function ChartBox({id,type,data,options={},height=230}){
+  const ref=useRef(null), inst=useRef(null);
+  useEffect(()=>{
+    if(!ref.current||!data) return;
+    if(inst.current) inst.current.destroy();
+    inst.current=new Chart(ref.current,{type,data,options:{responsive:true,maintainAspectRatio:false,...options}});
+    return ()=>{ if(inst.current){inst.current.destroy();inst.current=null;} };
+  },[data]);
+  return <div style={{height,position:'relative'}}><canvas ref={ref} id={id}/></div>;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MARKDOWN RENDERER (for Claude responses)
+═══════════════════════════════════════════════════════════════ */
+function renderInline(text){
+  const parts=[]; let rem=text, k=0;
+  while(rem){
+    const bi=rem.indexOf('**');
+    if(bi===-1){ parts.push(<span key={k++}>{rem}</span>); break; }
+    if(bi>0) parts.push(<span key={k++}>{rem.slice(0,bi)}</span>);
+    const ei=rem.indexOf('**',bi+2);
+    if(ei===-1){ parts.push(<span key={k++}>{rem}</span>); break; }
+    parts.push(<strong key={k++} className="text-white font-semibold">{rem.slice(bi+2,ei)}</strong>);
+    rem=rem.slice(ei+2);
+  }
+  return parts;
+}
+
+function RenderMarkdown({text}){
+  if(!text) return null;
+  const lines=text.split('\n');
+  const elements=[]; let listBuf=[], listType=null, ek=0;
+  const flushList=()=>{
+    if(!listBuf.length) return;
+    const colorDot=listType==='ul'?'#818cf8':'#34d399';
+    elements.push(
+      <div key={ek++} className="my-1.5 space-y-1">
+        {listBuf.map((item,i)=>(
+          <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
+            <span className="mt-0.5 flex-shrink-0 font-bold" style={{color:colorDot}}>{listType==='ul'?'•':`${i+1}.`}</span>
+            <span>{renderInline(item)}</span>
+          </div>
+        ))}
+      </div>
+    );
+    listBuf=[]; listType=null;
+  };
+  lines.forEach(line=>{
+    const t=line.trim();
+    if(!t){ flushList(); return; }
+    if(t.startsWith('## ')){ flushList(); elements.push(<h3 key={ek++} className="text-sm font-bold text-white mt-4 mb-1.5" style={{fontFamily:'Space Grotesk'}}>{renderInline(t.slice(3))}</h3>); return; }
+    if(t.startsWith('# ')){ flushList(); elements.push(<h2 key={ek++} className="text-base font-bold text-white mt-4 mb-2" style={{fontFamily:'Space Grotesk'}}>{renderInline(t.slice(2))}</h2>); return; }
+    if(/^[-•*]\s+/.test(t)){ if(listType!=='ul'){flushList();listType='ul';} listBuf.push(t.replace(/^[-•*]\s+/,'')); return; }
+    if(/^\d+\.\s+/.test(t)){ if(listType!=='ol'){flushList();listType='ol';} listBuf.push(t.replace(/^\d+\.\s+/,'')); return; }
+    flushList();
+    elements.push(<p key={ek++} className="text-slate-300 my-1 text-sm leading-relaxed">{renderInline(t)}</p>);
+  });
+  flushList();
+  return <div className="space-y-0.5">{elements}</div>;
+}
+
+/* Legacy inline-only narrator for rule-based responses */
+function ChatNarrative({text}){
+  const parts=[]; let rem=text, k=0;
+  while(rem){
+    const bi=rem.indexOf('**');
+    if(bi===-1){ parts.push(<span key={k++}>{rem}</span>); break; }
+    if(bi>0) parts.push(<span key={k++}>{rem.slice(0,bi)}</span>);
+    const ei=rem.indexOf('**',bi+2);
+    if(ei===-1){ parts.push(<span key={k++}>{rem}</span>); break; }
+    parts.push(<strong key={k++}>{rem.slice(bi+2,ei)}</strong>);
+    rem=rem.slice(ei+2);
+  }
+  return <span className="whitespace-pre-line">{parts}</span>;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   KPI CARD
+═══════════════════════════════════════════════════════════════ */
+function KpiCard({icon,label,value,sub,color,trend}){
+  return(
+    <div className="kpi-card glass p-5 flex flex-col gap-3">
+      <div className="flex items-start justify-between">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style={{background:`${color}22`,border:`1px solid ${color}44`}}>{icon}</div>
+        {trend&&<span className="stat-pill" style={{background:`${color}18`,color,border:`1px solid ${color}33`}}>{trend}</span>}
+      </div>
+      <div>
+        <div className="text-[1.6rem] font-bold leading-none text-white" style={{fontFamily:'Space Grotesk'}}>{value}</div>
+        <div className="text-xs text-slate-400 mt-1">{label}</div>
+        {sub&&<div className="text-xs mt-1 font-medium" style={{color}}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION CARD
+═══════════════════════════════════════════════════════════════ */
+function Card({title,subtitle,children,className='',badge}){
+  return(
+    <div className={`glass p-5 ${className}`}>
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-100" style={{fontFamily:'Space Grotesk'}}>{title}</h3>
+          {subtitle&&<p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+        </div>
+        {badge&&<span className="stat-pill" style={{background:'rgba(99,102,241,.12)',color:'#818cf8',border:'1px solid rgba(99,102,241,.2)'}}>{badge}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function RiskBadge({risk}){ return <span className={`badge badge-${risk||'unknown'}`}>{risk||'unknown'}</span>; }
+
+/* ═══════════════════════════════════════════════════════════════
+   AI INSIGHTS PANEL — CEO Briefing via Claude
+═══════════════════════════════════════════════════════════════ */
+function AIInsightsPanel({ data, apiKey, onOpenChat }){
+  const [briefing,setBriefing]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState('');
+  const [genAt,setGenAt]=useState(null);
+
+  // Reset when data changes (new file loaded)
+  useEffect(()=>{ setBriefing(''); setGenAt(null); setError(''); },[data]);
+
+  // Auto-generate when apiKey becomes available and briefing not yet generated
+  useEffect(()=>{
+    if(apiKey&&data&&!briefing&&!loading&&!error) generate();
+  },[apiKey, data]);
+
+  const generate=async()=>{
+    if(!apiKey){ setError('Enter your Anthropic API key in the 🤖 chat panel to generate.'); return; }
+    setLoading(true); setError(''); setBriefing('');
+    try{
+      const ctx=buildBriefingContext(data);
+      const text=await callClaude(apiKey,BRIEFING_SYSTEM,`Patient cohort data (JSON):\n${ctx}\n\nGenerate the executive briefing now.`,1600);
+      setBriefing(text); setGenAt(new Date());
+    }catch(e){ setError(e.message); }
+    finally{ setLoading(false); }
+  };
+
+  if(!apiKey&&!briefing&&!error){
+    return(
+      <div className="briefing-card mb-5" style={{background:'rgba(9,14,30,.8)',border:'1px solid rgba(99,102,241,.15)'}}>
+        <div className="briefing-header flex items-center gap-4">
+          <div className="text-3xl">🧠</div>
+          <div className="flex-1">
+            <div className="text-base font-bold text-white" style={{fontFamily:'Space Grotesk'}}>AI Executive Intelligence Briefing</div>
+            <div className="text-xs text-slate-400 mt-0.5">Auto-generated CEO summary powered by Claude Sonnet · Built from your Excel data</div>
+          </div>
+          <button onClick={onOpenChat}
+            className="px-5 py-2.5 rounded-xl text-sm font-medium text-white flex-shrink-0"
+            style={{background:'linear-gradient(135deg,#6366f1,#4f46e5)',boxShadow:'0 2px 14px rgba(99,102,241,.4)'}}>
+            🔑 Add API Key →
+          </button>
+        </div>
+        <div className="px-6 py-4 text-xs text-slate-600">
+          Enter your Anthropic API key in the chat panel (⚙ settings) to auto-generate a CEO briefing from your {data.summary.totalPatients} patients across {data.summary.totalVisits} visits and {data.summary.totalActions} clinical actions.
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div className="briefing-card mb-5">
+      {/* Header */}
+      <div className="briefing-header flex items-center gap-4">
+        <div className="text-3xl">🧠</div>
+        <div className="flex-1">
+          <div className="text-base font-bold text-white" style={{fontFamily:'Space Grotesk'}}>AI Executive Intelligence Briefing</div>
+          <div className="text-xs text-slate-400 mt-0.5">
+            Powered by Claude Sonnet · {genAt?`Generated at ${genAt.toLocaleTimeString()}`:'Generating from your Excel data…'}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {!loading&&<button onClick={generate} id="btn-regenerate"
+            className="px-4 py-2 rounded-xl text-xs font-medium text-white hover:opacity-80 transition-opacity"
+            style={{background:'rgba(99,102,241,.25)',border:'1px solid rgba(99,102,241,.35)'}}>
+            ↻ Regenerate
+          </button>}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="px-6 py-5 briefing-body">
+        {loading&&(
+          <div className="flex items-center gap-3 py-3">
+            <div className="w-5 h-5 rounded-full spin" style={{border:'2px solid rgba(99,102,241,.2)',borderTopColor:'#818cf8'}}/>
+            <span className="text-sm text-slate-400">Claude is analyzing <strong className="text-white">{data.summary.totalPatients} patients</strong> across {data.summary.totalVisits} visits and {data.summary.totalActions} clinical actions…</span>
+          </div>
+        )}
+        {error&&!loading&&(
+          <div className="flex items-start gap-3 p-4 rounded-xl" style={{background:'rgba(244,63,94,.08)',border:'1px solid rgba(244,63,94,.2)'}}>
+            <span className="text-lg flex-shrink-0">⚠</span>
+            <div>
+              <div className="text-sm font-medium text-rose-400">{error}</div>
+              <button onClick={generate} className="text-xs text-slate-500 mt-1 hover:text-white underline">Try again</button>
+            </div>
+          </div>
+        )}
+        {briefing&&!loading&&<RenderMarkdown text={briefing}/>}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHAT MINI TABLE
+═══════════════════════════════════════════════════════════════ */
+function ChatMiniTable({patients}){
+  const [page,setPage]=useState(0);
+  const PER=5, pages=Math.ceil(patients.length/PER);
+  const paged=patients.slice(page*PER,(page+1)*PER);
+  if(!patients.length) return null;
+  return(
+    <div className="mt-3">
+      <div className="overflow-x-auto rounded-xl" style={{border:'1px solid rgba(99,102,241,.12)'}}>
+        <table className="mptable">
+          <thead><tr>{['Patient','Age','Gender','Risk','Score','IP?','Dept'].map(h=><th key={h} className="text-left">{h}</th>)}</tr></thead>
+          <tbody>
+            {paged.map((p,i)=>(
+              <tr key={p.id||i}>
+                <td className="font-medium text-slate-200 whitespace-nowrap">{p.name}</td>
+                <td>{p.age}</td>
+                <td className="text-slate-500">{p.gender}</td>
+                <td><RiskBadge risk={p.risk}/></td>
+                <td><div className="flex items-center gap-1.5"><div className="pbar w-10"><div className="pbar-fill" style={{width:`${Math.min((p.score/10)*100,100)}%`,background:RISK_COLORS[p.risk]||'#818cf8'}}/></div><span className="text-xs text-slate-500">{p.score}</span></div></td>
+                <td>{p.ipFlag?<span className="badge badge-high" style={{fontSize:'.62rem'}}>⚠</span>:<span className="text-slate-600 text-xs">No</span>}</td>
+                <td className="text-slate-500 max-w-[90px] truncate">{p.dept}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {pages>1&&(
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-xs text-slate-600">{page*PER+1}–{Math.min((page+1)*PER,patients.length)} of {patients.length}</span>
+          <div className="flex gap-1.5">
+            <button onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0} className="px-2.5 py-1 rounded-lg text-xs disabled:opacity-30" style={{background:'rgba(99,102,241,.15)',color:'#818cf8'}}>←</button>
+            <button onClick={()=>setPage(p=>Math.min(pages-1,p+1))} disabled={page>=pages-1} className="px-2.5 py-1 rounded-lg text-xs disabled:opacity-30" style={{background:'rgba(99,102,241,.15)',color:'#818cf8'}}>→</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHATBOT — Claude API + rule-based fallback
+═══════════════════════════════════════════════════════════════ */
+function ChatBot({ data, apiKey, onApiKeyChange, open, setOpen }){
+  const [input,setInput]=useState('');
+  const [msgs,setMsgs]=useState([]);
+  const [thinking,setThinking]=useState(false);
+  const [welcomed,setWelcomed]=useState(false);
+  const [showKeyInput,setShowKeyInput]=useState(false);
+  const [tempKey,setTempKey]=useState(apiKey||'');
+  const msgEndRef=useRef(null);
+  const inputRef=useRef(null);
+
+  useEffect(()=>{
+    if(!welcomed&&data){
+      setMsgs([{
+        id:'welcome',role:'bot',type:'welcome',
+        narrative:`**DocStribe Patient Intelligence AI** 🏥\n\nAnalyzing **${data.summary.totalPatients} patients** · ${data.summary.totalVisits} visits · ${data.summary.totalActions} clinical actions · ${data.summary.totalCalls} calls.\n\nMode: **${apiKey?'Claude Sonnet AI (live)':'Smart Query Engine'}**${apiKey?'':' — add API key via ⚙ settings for Claude AI'}.`,
+        highlights:[],patients:[],appliedFilters:[],
+      }]);
+      setWelcomed(true);
+    }
+  },[data,welcomed]);
+
+  useEffect(()=>{ msgEndRef.current?.scrollIntoView({behavior:'smooth'}); },[msgs,thinking]);
+
+  const sendQuery=useCallback(async(text)=>{
+    if(!text.trim()||!data) return;
+    setMsgs(prev=>[...prev,{id:Date.now()+'u',role:'user',text:text.trim()}]);
+    setInput('');
+    setThinking(true);
+    try{
+      if(apiKey){
+        // ── Claude API path ──
+        const ctx=buildQueryContext(text.trim(),data);
+        const claudeText=await callClaude(apiKey,CHAT_SYSTEM,`Patient cohort data (JSON):\n${ctx}\n\nUser question: ${text.trim()}`,900);
+        const nlpResult=runNLPQuery(text.trim(),data); // for patient table
+        setMsgs(prev=>[...prev,{
+          id:Date.now()+'b',role:'bot',type:'claude',
+          narrative:claudeText,
+          patients:nlpResult.patients,total:nlpResult.total,
+          appliedFilters:nlpResult.appliedFilters,highlights:nlpResult.highlights,
+        }]);
+      } else {
+        // ── Rule-based fallback ──
+        await new Promise(r=>setTimeout(r,350));
+        const result=runNLPQuery(text.trim(),data);
+        setMsgs(prev=>[...prev,{id:Date.now()+'b',role:'bot',...result}]);
+      }
+    }catch(e){
+      const nlpResult=runNLPQuery(text.trim(),data);
+      setMsgs(prev=>[...prev,{
+        id:Date.now()+'b',role:'bot',type:'error_fallback',
+        narrative:`⚠ Claude API error: **${e.message}**\n\nFalling back to Smart Query Engine:\n\n${nlpResult.narrative}`,
+        patients:nlpResult.patients,total:nlpResult.total,
+        appliedFilters:nlpResult.appliedFilters,highlights:nlpResult.highlights,
+      }]);
+    }finally{ setThinking(false); }
+  },[data,apiKey]);
+
+  const handleKey=(e)=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendQuery(input); } };
+
+  const saveKey=()=>{ onApiKeyChange(tempKey.trim()); setShowKeyInput(false); };
+
+  return(
+    <>
+      <div className={`chat-backdrop ${open?'open':''}`} onClick={()=>setOpen(false)}/>
+
+      <button id="chat-fab" className="chat-fab" onClick={()=>setOpen(o=>!o)} aria-label="Open AI chat">
+        {open?'✕':'🤖'}
+        {!open&&<span className="notif pulse-dot"/>}
+      </button>
+
+      <div className={`chat-panel ${open?'open':''}`} role="dialog" aria-label="Patient Intelligence AI">
+        {/* Panel header */}
+        <div className="flex items-center gap-3 px-4 py-3.5 flex-shrink-0" style={{borderBottom:'1px solid rgba(99,102,241,.15)',background:'rgba(10,16,32,.9)'}}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style={{background:'linear-gradient(135deg,#6366f1,#22d3ee)'}}>🤖</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-white" style={{fontFamily:'Space Grotesk'}}>Patient Intelligence AI</div>
+            <div className="text-xs flex items-center gap-1.5 text-slate-500">
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{background:apiKey?'#34d399':'#fbbf24'}}/>
+              {apiKey?'Claude Sonnet · Live':'Smart Engine · No API key set'}
+            </div>
+          </div>
+          <button id="btn-chat-settings" onClick={()=>setShowKeyInput(k=>!k)} title="API key settings"
+            className="p-1.5 rounded-lg transition-colors text-slate-500 hover:text-white"
+            style={{background:'rgba(255,255,255,.05)'}}>⚙</button>
+          <button onClick={()=>setOpen(false)}
+            className="p-1.5 rounded-lg transition-colors text-slate-500 hover:text-white"
+            style={{background:'rgba(255,255,255,.05)'}}>✕</button>
+        </div>
+
+        {/* API Key Settings (collapsible) */}
+        {showKeyInput&&(
+          <div className="key-settings flex-shrink-0">
+            <p className="text-xs text-slate-500 mb-2">🔑 Anthropic API Key <span className="text-slate-700">(session only — never stored permanently)</span></p>
+            <div className="flex gap-2">
+              <input
+                id="api-key-input"
+                type="password"
+                value={tempKey}
+                onChange={e=>setTempKey(e.target.value)}
+                onKeyDown={e=>e.key==='Enter'&&saveKey()}
+                placeholder="sk-ant-api03-…"
+                className="key-input flex-1"
+                spellCheck={false}
+              />
+              <button onClick={saveKey}
+                className="px-3 py-2 rounded-lg text-xs font-medium text-white flex-shrink-0"
+                style={{background:'linear-gradient(135deg,#6366f1,#4f46e5)'}}>Save</button>
+            </div>
+            {apiKey&&<p className="text-xs mt-1.5" style={{color:'#34d399'}}>✓ API key active — Claude Sonnet enabled · CEO briefing will auto-generate</p>}
+            {!apiKey&&<p className="text-xs text-slate-600 mt-1">Get your key at console.anthropic.com. Key is used only for direct API calls.</p>}
+          </div>
+        )}
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+          {msgs.map(msg=>(
+            msg.role==='user'
+              ? <div key={msg.id} className="msg-user"><div className="bubble">{msg.text}</div></div>
+              : (
+                <div key={msg.id} className="msg-bot">
+                  <div className="avatar">🤖</div>
+                  <div className="bubble">
+                    {/* Source tag */}
+                    {msg.type==='claude'&&(
+                      <div className="mb-2">
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{background:'rgba(52,211,153,.12)',color:'#34d399',border:'1px solid rgba(52,211,153,.2)'}}>✨ Claude Sonnet</span>
+                      </div>
+                    )}
+                    {msg.type==='error_fallback'&&(
+                      <div className="mb-2">
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{background:'rgba(251,191,36,.1)',color:'#fbbf24',border:'1px solid rgba(251,191,36,.2)'}}>⚠ Fallback mode</span>
+                      </div>
+                    )}
+                    {/* Narrative */}
+                    <div className="mb-2">
+                      {(msg.type==='claude'||msg.type==='error_fallback')
+                        ? <RenderMarkdown text={msg.narrative||''}/>
+                        : <ChatNarrative text={msg.narrative||''}/>}
+                    </div>
+                    {/* Highlight chips */}
+                    {msg.highlights&&msg.highlights.length>0&&(
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {msg.highlights.map((h,i)=>(
+                          <div key={i} className="hi-chip" style={{background:`${h.color}12`,border:`1px solid ${h.color}30`}}>
+                            <span className="text-sm font-bold" style={{color:h.color,fontFamily:'Space Grotesk'}}>{h.value}</span>
+                            <span className="text-xs text-slate-500 mt-0.5">{h.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* Applied filters */}
+                    {msg.appliedFilters&&msg.appliedFilters.length>0&&(
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {msg.appliedFilters.map((f,i)=>(
+                          <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{background:'rgba(99,102,241,.12)',color:'#818cf8',border:'1px solid rgba(99,102,241,.2)'}}>{f}</span>
+                        ))}
+                      </div>
+                    )}
+                    {/* Mini table */}
+                    {msg.patients&&msg.patients.length>0&&<ChatMiniTable patients={msg.patients}/>}
+                    {msg.total>50&&<p className="text-xs text-slate-500 mt-2">Showing top 50 of {msg.total} results.</p>}
+                  </div>
+                </div>
+              )
+          ))}
+          {thinking&&(
+            <div className="msg-bot">
+              <div className="avatar">🤖</div>
+              <div className="bubble" style={{padding:'14px 16px'}}>
+                <span className="typing-dot"/><span className="typing-dot"/><span className="typing-dot"/>
+                {apiKey&&<span className="text-xs text-slate-600 ml-2">Claude is thinking…</span>}
+              </div>
+            </div>
+          )}
+          <div ref={msgEndRef}/>
+        </div>
+
+        {/* Quick suggestions */}
+        <div className="px-4 pb-2 flex-shrink-0">
+          <p className="text-xs text-slate-600 mb-2">Quick queries</p>
+          <div className="flex gap-1.5 flex-wrap max-h-[72px] overflow-y-auto pb-1">
+            {SUGGESTIONS.map((s,i)=>(
+              <button key={i} className="chip" onClick={()=>sendQuery(s.query)}>{s.label}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Input */}
+        <div className="px-4 pb-4 flex-shrink-0">
+          <div className="flex gap-2 items-end">
+            <textarea
+              ref={inputRef}
+              id="chat-input"
+              className="chat-input flex-1"
+              rows={2}
+              placeholder={apiKey?"Ask Claude about your patients…":"Ask anything — add API key for Claude AI…"}
+              value={input}
+              onChange={e=>setInput(e.target.value)}
+              onKeyDown={handleKey}
+            />
+            <button
+              id="chat-send"
+              onClick={()=>sendQuery(input)}
+              disabled={!input.trim()||thinking}
+              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
+              style={{background:'linear-gradient(135deg,#6366f1,#4f46e5)',boxShadow:'0 2px 12px rgba(99,102,241,.35)'}}>➤
+            </button>
+          </div>
+          <p className="text-xs text-slate-700 mt-1.5 text-center">Enter · Shift+Enter for new line</p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FULL PATIENT TABLE
+═══════════════════════════════════════════════════════════════ */
+function PatientTable({rows}){
+  const [q,setQ]=useState(''), [rf,setRf]=useState('all'), [page,setPage]=useState(0);
+  const PER=12;
+  const filtered=useMemo(()=>rows.filter(r=>{
+    const mq=!q||(r.name||'').toLowerCase().includes(q.toLowerCase())||(r.dept||'').toLowerCase().includes(q.toLowerCase());
+    return mq&&(rf==='all'||r.risk===rf);
+  }),[rows,q,rf]);
+  const paged=filtered.slice(page*PER,(page+1)*PER), pages=Math.ceil(filtered.length/PER);
+  return(
+    <div>
+      <div className="flex flex-wrap gap-2 mb-4">
+        <input type="text" placeholder="🔍  Search patient or department…" value={q}
+          onChange={e=>{setQ(e.target.value);setPage(0);}}
+          className="flex-1 min-w-[200px] px-4 py-2 rounded-xl text-sm text-white placeholder-slate-500 outline-none"
+          style={{background:'rgba(99,102,241,.1)',border:'1px solid rgba(99,102,241,.2)'}}/>
+        {['all','rising','medium','high','critical'].map(r=>(
+          <button key={r} onClick={()=>{setRf(r);setPage(0);}}
+            className="px-3 py-2 rounded-xl text-xs font-medium transition-all"
+            style={{background:rf===r?(r==='all'?'rgba(99,102,241,.3)':`${RISK_COLORS[r]||'#818cf8'}22`):'rgba(99,102,241,.07)',border:`1px solid ${rf===r?(r==='all'?'#6366f1':RISK_COLORS[r]||'#818cf8'):'rgba(99,102,241,.15)'}`,color:rf===r?(r==='all'?'#818cf8':RISK_COLORS[r]||'#818cf8'):'#64748b'}}>
+            {r==='all'?'All Risk':r.charAt(0).toUpperCase()+r.slice(1)}
+          </button>
+        ))}
+      </div>
+      <div className="overflow-x-auto rounded-xl" style={{border:'1px solid rgba(99,102,241,.1)'}}>
+        <table className="ptable">
+          <thead><tr>{['Patient','Age','Gender','Risk Level','Risk Score','IP Potential','Dept / Follow-up','Care Gaps','Status'].map(h=><th key={h} className="text-left">{h}</th>)}</tr></thead>
+          <tbody>
+            {paged.map((r,i)=>(
+              <tr key={r.id||i}>
+                <td className="font-medium text-slate-200 whitespace-nowrap">{r.name}</td>
+                <td>{r.age}</td>
+                <td><span className="text-slate-400">{r.gender}</span></td>
+                <td><RiskBadge risk={r.risk}/></td>
+                <td><div className="flex items-center gap-2"><div className="pbar w-14"><div className="pbar-fill" style={{width:`${Math.min((r.score/10)*100,100)}%`,background:RISK_COLORS[r.risk]||'#818cf8'}}/></div><span className="text-xs text-slate-400">{r.score}/10</span></div></td>
+                <td>{r.ipFlag?<span className="badge badge-high">⚠ Yes</span>:<span className="text-slate-600 text-xs">No</span>}</td>
+                <td className="max-w-[160px] truncate text-slate-400">{r.dept}</td>
+                <td>{r.gaps>0?<span className="badge badge-critical">{r.gaps} gap{r.gaps>1?'s':''}</span>:<span className="text-slate-600 text-xs">None</span>}</td>
+                <td><span className="badge" style={{background:'rgba(99,102,241,.12)',color:'#818cf8',border:'1px solid rgba(99,102,241,.2)'}}>{r.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center justify-between mt-3">
+        <span className="text-xs text-slate-500">{page*PER+1}–{Math.min((page+1)*PER,filtered.length)} of {filtered.length} patients</span>
+        <div className="flex gap-2 items-center">
+          <button onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0} className="px-3 py-1.5 rounded-lg text-xs disabled:opacity-30" style={{background:'rgba(99,102,241,.15)',color:'#818cf8'}}>← Prev</button>
+          <span className="text-xs text-slate-400">{page+1} / {pages||1}</span>
+          <button onClick={()=>setPage(p=>Math.min(pages-1,p+1))} disabled={page>=pages-1} className="px-3 py-1.5 rounded-lg text-xs disabled:opacity-30" style={{background:'rgba(99,102,241,.15)',color:'#818cf8'}}>Next →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UPLOAD SCREEN
+═══════════════════════════════════════════════════════════════ */
+function UploadScreen({onLoad}){
+  const [drag,setDrag]=useState(false), [loading,setLoading]=useState(false), [err,setErr]=useState('');
+  const inputRef=useRef(null);
+  const handle=useCallback((file)=>{
+    if(!file||!/\.xlsx?$/i.test(file.name)){setErr('Please upload a valid .xlsx Excel file.');return;}
+    setLoading(true);setErr('');
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{const arr=new Uint8Array(e.target.result);const wb=XLSX.read(arr,{type:'array',cellDates:true});onLoad(processWorkbook(wb));}
+      catch(ex){setErr('Parse error: '+ex.message);setLoading(false);}
+    };
+    reader.readAsArrayBuffer(file);
+  },[onLoad]);
+  return(
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
+      <div className="text-center mb-14 fade-up">
+        <div className="flex items-center justify-center gap-4 mb-5">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl" style={{background:'linear-gradient(135deg,#6366f1,#22d3ee)',boxShadow:'0 0 30px rgba(99,102,241,.4)'}}>🏥</div>
+          <div className="text-left">
+            <div className="text-4xl font-bold grad-text" style={{fontFamily:'Space Grotesk'}}>DocStribe</div>
+            <div className="text-sm text-slate-400 tracking-wide">Patient Intelligence Platform</div>
+          </div>
+        </div>
+        <p className="text-slate-400 text-sm max-w-md mx-auto leading-relaxed">
+          Upload <code className="text-indigo-400 bg-indigo-900/30 px-1.5 py-0.5 rounded text-xs">patients_anonymized.xlsx</code> to generate CXO-level analytics — with Claude AI chatbot and auto-generated CEO briefing.
+        </p>
+      </div>
+      <div id="upload-dropzone" className={`drop-zone p-14 text-center w-full max-w-lg ${drag?'drag-over':''}`}
+        style={{background:drag?'rgba(99,102,241,.1)':'rgba(11,18,36,.7)'}}
+        onClick={()=>!loading&&inputRef.current?.click()}
+        onDragOver={e=>{e.preventDefault();setDrag(true)}}
+        onDragLeave={()=>setDrag(false)}
+        onDrop={e=>{e.preventDefault();setDrag(false);handle(e.dataTransfer.files[0])}}>
+        {loading?(
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-14 h-14 rounded-full spin" style={{border:'3px solid rgba(99,102,241,.2)',borderTopColor:'#818cf8'}}/>
+            <p className="text-slate-400 text-sm">Parsing Excel & building cross-sheet index…</p>
+          </div>
+        ):(
+          <>
+            <div className="text-6xl mb-5">📊</div>
+            <p className="text-white font-semibold text-lg mb-2">Drop your Excel file here</p>
+            <p className="text-slate-500 text-sm mb-6">or click to browse · .xlsx format</p>
+            <div className="inline-flex items-center gap-2 px-7 py-3 rounded-xl font-medium text-sm text-white" style={{background:'linear-gradient(135deg,#6366f1,#4f46e5)',boxShadow:'0 4px 20px rgba(99,102,241,.35)'}}>📁 &nbsp;Select File</div>
+          </>
+        )}
+        {err&&<p className="text-rose-400 text-sm mt-5">{err}</p>}
+      </div>
+      <input ref={inputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e=>handle(e.target.files[0])} id="file-input"/>
+      <div className="flex flex-wrap justify-center gap-2 mt-10 fade-up-2">
+        {['Risk Stratification','IP Admission','Revenue Intelligence','Visit Trends','Call Analytics','Claude AI Chat','CEO Briefing'].map(f=>(
+          <span key={f} className="stat-pill" style={{background:'rgba(99,102,241,.1)',color:'#818cf8',border:'1px solid rgba(99,102,241,.2)'}}>{f}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN DASHBOARD
+═══════════════════════════════════════════════════════════════ */
+function Dashboard({data,onReset}){
+  // API key lives here — passed to both AIInsightsPanel and ChatBot
+  const [apiKey,setApiKey]=useState(()=>sessionStorage.getItem('ds_ak')||'');
+  const [chatOpen,setChatOpen]=useState(false);
+
+  const handleApiKeyChange=(key)=>{ const k=key.trim(); setApiKey(k); if(k) sessionStorage.setItem('ds_ak',k); else sessionStorage.removeItem('ds_ak'); };
+
+  const {summary:S,riskCounts,ipCounts,genderCounts,ageGroups,topDepts,monthVisitSorted,
+         taskMap,urgMap,statusMap,revByType,callStatusMap,callReasonMap,callMonthMap,patientRows}=data;
+
+  const OPT_DONUT={cutout:'66%',plugins:{legend:{position:'bottom',labels:LegendLabels},tooltip:{...TTip}}};
+  const OPT_HBAR={indexAxis:'y',scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#64748b',font:{family:'Inter',size:11}}},y:{grid:{display:false},ticks:{color:'#94a3b8',font:{family:'Inter',size:11}}}},plugins:{legend:{display:false},tooltip:{...TTip}}};
+  const OPT_BAR={scales:{x:{grid:{display:false},ticks:{color:'#94a3b8',font:{family:'Inter',size:11}}},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#64748b',font:{family:'Inter',size:11}}}},plugins:{legend:{display:false},tooltip:{...TTip}}};
+  const OPT_LINE={scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#94a3b8',font:{family:'Inter',size:11}}},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#64748b',font:{family:'Inter',size:11}}}},plugins:{legend:{display:false},tooltip:{...TTip}}};
+
+  const riskChartData=useMemo(()=>({labels:Object.keys(riskCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(riskCounts),backgroundColor:Object.keys(riskCounts).map(k=>(RISK_COLORS[k]||'#818cf8')+'cc'),borderColor:'#060a14',borderWidth:3,hoverOffset:10}]}),[riskCounts]);
+  const ipChartData=useMemo(()=>({labels:['IP Potential','No IP Need'],datasets:[{data:[ipCounts.IP,ipCounts.Safe],backgroundColor:['#f43f5ecc','#34d399cc'],borderColor:'#060a14',borderWidth:3,hoverOffset:10}]}),[ipCounts]);
+  const genderChartData=useMemo(()=>({labels:Object.keys(genderCounts),datasets:[{data:Object.values(genderCounts),backgroundColor:['#f472b6cc','#38bdf8cc','#a78bfacc'],borderColor:'#060a14',borderWidth:3,hoverOffset:8}]}),[genderCounts]);
+  const ageChartData=useMemo(()=>({labels:Object.keys(ageGroups),datasets:[{label:'Patients',data:Object.values(ageGroups),backgroundColor:Object.keys(ageGroups).map((_,i)=>CHART_PAL[i]+'99'),borderColor:Object.keys(ageGroups).map((_,i)=>CHART_PAL[i]),borderWidth:2,borderRadius:6}]}),[ageGroups]);
+  const deptChartData=useMemo(()=>({labels:topDepts.map(([d])=>d.length>32?d.slice(0,30)+'…':d),datasets:[{label:'Visits',data:topDepts.map(([,v])=>v),backgroundColor:topDepts.map((_,i)=>CHART_PAL[i%CHART_PAL.length]+'88'),borderColor:topDepts.map((_,i)=>CHART_PAL[i%CHART_PAL.length]),borderWidth:2,borderRadius:5}]}),[topDepts]);
+  const monthVisitData=useMemo(()=>({labels:monthVisitSorted.map(([k])=>monthLabel(k)),datasets:[{label:'Visits',data:monthVisitSorted.map(([,v])=>v),borderColor:'#818cf8',backgroundColor:'rgba(129,140,248,.12)',tension:.4,fill:true,pointBackgroundColor:'#818cf8',pointRadius:5,pointHoverRadius:8,pointBorderColor:'#060a14',pointBorderWidth:2}]}),[monthVisitSorted]);
+  const taskChartData=useMemo(()=>{const e=Object.entries(taskMap).filter(([k])=>k!=='Unknown').sort((a,b)=>b[1]-a[1]);return{labels:e.map(([k])=>k),datasets:[{data:e.map(([,v])=>v),backgroundColor:e.map((_,i)=>CHART_PAL[i%CHART_PAL.length]+'cc'),borderColor:'#060a14',borderWidth:2,hoverOffset:8}]};},[taskMap]);
+  const urgChartData=useMemo(()=>{const order=['critical','high','medium','low'],e=order.filter(k=>urgMap[k]).map(k=>[k,urgMap[k]]);return{labels:e.map(([k])=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{label:'Actions',data:e.map(([,v])=>v),backgroundColor:['#f43f5e88','#fb923c88','#fbbf2488','#34d39988'],borderColor:['#f43f5e','#fb923c','#fbbf24','#34d399'],borderWidth:2,borderRadius:6}]};},[urgMap]);
+  const callStatusData=useMemo(()=>{const e=Object.entries(callStatusMap).sort((a,b)=>b[1]-a[1]);return{labels:e.map(([k])=>k),datasets:[{label:'Calls',data:e.map(([,v])=>v),backgroundColor:['#34d39988','#f43f5e88','#fbbf2488','#818cf888','#fb923c88'],borderColor:['#34d399','#f43f5e','#fbbf24','#818cf8','#fb923c'],borderWidth:2,borderRadius:6}]};},[callStatusMap]);
+  const callReasonData=useMemo(()=>{const e=Object.entries(callReasonMap).filter(([k])=>k!=='unknown').sort((a,b)=>b[1]-a[1]).slice(0,9);return{labels:e.map(([k])=>k),datasets:[{label:'Calls',data:e.map(([,v])=>v),backgroundColor:e.map((_,i)=>CHART_PAL[i%CHART_PAL.length]+'88'),borderColor:e.map((_,i)=>CHART_PAL[i%CHART_PAL.length]),borderWidth:2,borderRadius:5}]};},[callReasonMap]);
+  const callMonthData=useMemo(()=>{const s=Object.entries(callMonthMap).sort((a,b)=>a[0].localeCompare(b[0]));return{labels:s.map(([k])=>monthLabel(k)),datasets:[{label:'Calls',data:s.map(([,v])=>v),borderColor:'#f472b6',backgroundColor:'rgba(244,114,182,.12)',tension:.4,fill:true,pointBackgroundColor:'#f472b6',pointRadius:5,pointHoverRadius:8,pointBorderColor:'#060a14',pointBorderWidth:2}]};},[callMonthMap]);
+  const revChartData=useMemo(()=>{const e=Object.entries(revByType).sort((a,b)=>b[1]-a[1]);return e.length>0?{labels:e.map(([k])=>k),datasets:[{data:e.map(([,v])=>v),backgroundColor:e.map((_,i)=>CHART_PAL[i%CHART_PAL.length]+'cc'),borderColor:'#060a14',borderWidth:2,hoverOffset:8}]}:null;},[revByType]);
+
+  const pendingActions=statusMap['pending']||0, highUrgActions=(urgMap['high']||0)+(urgMap['critical']||0);
+
+  return(
+    <div className="min-h-screen pb-12">
+      {/* ── Nav ── */}
+      <nav className="sticky top-0 z-50 px-5 py-3 flex items-center justify-between"
+        style={{background:'rgba(6,10,20,.9)',backdropFilter:'blur(20px)',borderBottom:'1px solid rgba(99,102,241,.15)'}}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style={{background:'linear-gradient(135deg,#6366f1,#22d3ee)'}}>🏥</div>
+          <div><span className="font-bold text-white text-sm" style={{fontFamily:'Space Grotesk'}}>DocStribe</span><span className="text-slate-600 text-xs ml-2 hidden sm:inline">Patient Intelligence</span></div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex gap-3 text-xs text-slate-500">
+            <span>👥 {S.totalPatients}</span><span>·</span><span>🏨 {S.totalVisits}</span><span>·</span><span>📋 {S.totalActions}</span>
+          </div>
+          {/* Claude status */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs cursor-pointer"
+            onClick={()=>setChatOpen(true)}
+            style={{background:apiKey?'rgba(52,211,153,.1)':'rgba(99,102,241,.12)',border:`1px solid ${apiKey?'rgba(52,211,153,.25)':'rgba(99,102,241,.2)'}`,color:apiKey?'#34d399':'#818cf8'}}>
+            🤖 <span>{apiKey?'Claude Active':'Add API Key'}</span>
+          </div>
+          <button onClick={onReset} className="px-4 py-2 rounded-xl text-xs font-medium text-white hover:opacity-80 transition-opacity" style={{background:'rgba(99,102,241,.2)',border:'1px solid rgba(99,102,241,.3)'}}>↑ Load New File</button>
+        </div>
+      </nav>
+
+      <div className="px-4 sm:px-6 lg:px-8 max-w-[1700px] mx-auto">
+        {/* Page header */}
+        <div className="py-7 fade-up">
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-1" style={{fontFamily:'Space Grotesk'}}>Patient Intelligence Dashboard</h1>
+          <p className="text-slate-400 text-sm">CXO-level analytics · All metrics dynamically computed · <span style={{color:apiKey?'#34d399':'#818cf8'}}>🤖 {apiKey?'Claude Sonnet AI active':'Click 🤖 and add API key for Claude AI + CEO briefing'}</span></p>
+        </div>
+
+        {/* ── KPIs ── */}
+        <section id="sec-kpi">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
+            <KpiCard icon="👥" label="Total Patients" value={S.totalPatients.toLocaleString()} color="#818cf8" trend="Active Cohort"/>
+            <KpiCard icon="🏨" label="Total Visits" value={S.totalVisits.toLocaleString()} color="#34d399" trend="All Completed"/>
+            <KpiCard icon="📋" label="Clinical Actions" value={S.totalActions.toLocaleString()} color="#38bdf8" sub={`${pendingActions} pending`}/>
+            <KpiCard icon="🚨" label="IP Admission Risk" value={`${S.ipCount} pts`} sub={`${S.ipRate}% of cohort`} color="#f43f5e"/>
+            <KpiCard icon="📞" label="Call Connection" value={`${S.connectRate}%`} sub={`${S.connected}/${S.totalCalls} calls`} color="#fbbf24"/>
+            <KpiCard icon="💰" label="Revenue Potential" value={fmtINR(S.totalRevenue)} sub={`Across ${S.totalActions} actions`} color="#f472b6"/>
+          </div>
+        </section>
+
+        {/* ── AI CEO Briefing Panel ── */}
+        <section id="sec-briefing">
+          <AIInsightsPanel data={data} apiKey={apiKey} onOpenChat={()=>{ setChatOpen(true); }}/>
+        </section>
+
+        {/* ── Risk + IP + Demographics ── */}
+        <section id="sec-risk">
+          <p className="sec-label mt-2">Clinical Risk Intelligence</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+            <Card title="🎯 Risk Stratification" subtitle="Patient population by risk category">
+              <ChartBox id="chart-risk" type="doughnut" data={riskChartData} options={OPT_DONUT} height={210}/>
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                {Object.entries(riskCounts).map(([k,v])=>(
+                  <div key={k} className="flex items-center gap-2 text-xs">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{background:RISK_COLORS[k]||'#818cf8'}}/>
+                    <span className="text-slate-400 capitalize flex-1">{k}</span>
+                    <span className="font-semibold text-white">{v}</span>
+                    <span className="text-slate-600">({((v/S.totalPatients)*100).toFixed(0)}%)</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <Card title="🏥 IP Admission Potential" subtitle="Patients flagged for inpatient admission">
+              <ChartBox id="chart-ip" type="doughnut" data={ipChartData} options={OPT_DONUT} height={210}/>
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                <div className="p-3 rounded-xl text-center" style={{background:'rgba(244,63,94,.08)',border:'1px solid rgba(244,63,94,.18)'}}><div className="text-xl font-bold" style={{color:'#f43f5e',fontFamily:'Space Grotesk'}}>{S.ipCount}</div><div className="text-xs text-slate-400 mt-0.5">IP Potential</div></div>
+                <div className="p-3 rounded-xl text-center" style={{background:'rgba(52,211,153,.08)',border:'1px solid rgba(52,211,153,.18)'}}><div className="text-xl font-bold" style={{color:'#34d399',fontFamily:'Space Grotesk'}}>{S.ipRate}%</div><div className="text-xs text-slate-400 mt-0.5">Rate</div></div>
+              </div>
+              <div className="mt-3 p-3 rounded-xl flex items-center gap-2" style={{background:'rgba(251,146,60,.07)',border:'1px solid rgba(251,146,60,.15)'}}>
+                <span>⚡</span>
+                <div><div className="text-xs font-medium" style={{color:'#fb923c'}}>{highUrgActions} high/critical urgency actions</div><div className="text-xs text-slate-500">require immediate attention</div></div>
+              </div>
+            </Card>
+            <Card title="👤 Patient Demographics" subtitle="Gender and age distribution">
+              <p className="sec-label">Gender Distribution</p>
+              <ChartBox id="chart-gender" type="doughnut" data={genderChartData} options={OPT_DONUT} height={150}/>
+              <p className="sec-label mt-4">Age Groups</p>
+              <ChartBox id="chart-age" type="bar" data={ageChartData} options={OPT_BAR} height={110}/>
+            </Card>
+          </div>
+        </section>
+
+        {/* ── Visit Analytics ── */}
+        <section id="sec-visits">
+          <p className="sec-label mt-2">Visit Analytics</p>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-5">
+            <Card title="🏢 Visit Volume by Department" subtitle="Top 10 departments" className="lg:col-span-3">
+              <ChartBox id="chart-dept" type="bar" data={deptChartData} options={OPT_HBAR} height={310}/>
+            </Card>
+            <Card title="📈 Monthly Visit Trend" subtitle="Visits over time" className="lg:col-span-2">
+              <ChartBox id="chart-monthly" type="line" data={monthVisitData} options={OPT_LINE} height={310}/>
+              <div className="flex justify-between text-xs text-slate-500 mt-3">
+                <span>Total: <strong className="text-white">{S.totalVisits}</strong></span>
+                <span>Months: <strong className="text-white">{monthVisitSorted.length}</strong></span>
+                <span>Avg/mo: <strong className="text-white">{(S.totalVisits/(monthVisitSorted.length||1)).toFixed(1)}</strong></span>
+              </div>
+            </Card>
+          </div>
+        </section>
+
+        {/* ── Clinical Actions + Revenue ── */}
+        <section id="sec-actions">
+          <p className="sec-label mt-2">Clinical Action Intelligence</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+            <Card title="📋 Action Type Breakdown" subtitle="Clinical action categories">
+              <ChartBox id="chart-tasks" type="doughnut" data={taskChartData} options={OPT_DONUT} height={230}/>
+              <div className="mt-3 space-y-1.5">
+                {Object.entries(taskMap).filter(([k])=>k!=='Unknown').sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>(
+                  <div key={k} className="flex items-center gap-2 text-xs">
+                    <span className="text-slate-400 flex-1">{k}</span>
+                    <div className="pbar w-20"><div className="pbar-fill" style={{width:`${(v/S.totalActions)*100}%`,background:'#818cf8'}}/></div>
+                    <span className="text-white w-8 text-right font-medium">{v}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <Card title="⚡ Action Urgency Distribution" subtitle="Urgency levels across all actions">
+              <ChartBox id="chart-urgency" type="bar" data={urgChartData} options={OPT_BAR} height={230}/>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                {Object.entries(urgMap).sort((a,b)=>b[1]-a[1]).map(([k,v])=>(
+                  <div key={k} className="flex items-center gap-2 text-xs">
+                    <span className="w-2 h-2 rounded-full" style={{background:k==='critical'?'#f43f5e':k==='high'?'#fb923c':k==='medium'?'#fbbf24':'#34d399'}}/>
+                    <span className="text-slate-400 capitalize">{k}</span>
+                    <span className="ml-auto font-semibold text-white">{v}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <Card title="💰 Revenue Intelligence" subtitle="Potential revenue from clinical actions">
+              <div className="p-4 rounded-xl mb-4" style={{background:'linear-gradient(135deg,rgba(244,114,182,.1),rgba(251,146,60,.07))',border:'1px solid rgba(244,114,182,.2)'}}>
+                <p className="text-xs text-slate-400 mb-1">Total Revenue Potential</p>
+                <p className="text-3xl font-bold grad-text-warm" style={{fontFamily:'Space Grotesk'}}>{fmtINR(S.totalRevenue)}</p>
+                <p className="text-xs text-slate-500 mt-1">Across {S.totalActions} clinical actions</p>
+              </div>
+              <p className="sec-label">Action Status</p>
+              <div className="space-y-2 mb-4">
+                {Object.entries(statusMap).map(([k,v])=>(
+                  <div key={k} className="flex items-center gap-3">
+                    <span className="text-xs text-slate-300 capitalize w-20">{k}</span>
+                    <div className="flex-1 pbar"><div className="pbar-fill" style={{width:`${(v/S.totalActions)*100}%`,background:k==='completed'?'#34d399':k==='scheduled'?'#818cf8':'#fbbf24'}}/></div>
+                    <span className="text-xs text-slate-400 w-10 text-right">{v}</span>
+                  </div>
+                ))}
+              </div>
+              {revChartData&&<><p className="sec-label">Revenue by Action Type</p><ChartBox id="chart-revenue" type="doughnut" data={revChartData} options={OPT_DONUT} height={160}/></>}
+            </Card>
+          </div>
+        </section>
+
+        {/* ── Call History ── */}
+        <section id="sec-calls">
+          <p className="sec-label mt-2">Patient Engagement — Call History</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+            <Card title="📞 Call Status Overview" subtitle="Connection outcomes">
+              <ChartBox id="chart-call-status" type="bar" data={callStatusData} options={OPT_BAR} height={200}/>
+              <div className="grid grid-cols-3 gap-2 mt-4">
+                <div className="p-3 rounded-xl text-center" style={{background:'rgba(52,211,153,.08)',border:'1px solid rgba(52,211,153,.18)'}}><div className="text-lg font-bold" style={{color:'#34d399',fontFamily:'Space Grotesk'}}>{S.connectRate}%</div><div className="text-xs text-slate-500">Rate</div></div>
+                <div className="p-3 rounded-xl text-center" style={{background:'rgba(129,140,248,.08)',border:'1px solid rgba(129,140,248,.18)'}}><div className="text-lg font-bold" style={{color:'#818cf8',fontFamily:'Space Grotesk'}}>{S.connected}</div><div className="text-xs text-slate-500">Connected</div></div>
+                <div className="p-3 rounded-xl text-center" style={{background:'rgba(251,191,36,.08)',border:'1px solid rgba(251,191,36,.18)'}}><div className="text-lg font-bold" style={{color:'#fbbf24',fontFamily:'Space Grotesk'}}>{S.totalCalls}</div><div className="text-xs text-slate-500">Total</div></div>
+              </div>
+            </Card>
+            <Card title="💬 Call Reason Analysis" subtitle="Why patients were contacted">
+              <ChartBox id="chart-call-reason" type="bar" data={callReasonData} options={OPT_HBAR} height={260}/>
+            </Card>
+            <Card title="📅 Monthly Call Volume" subtitle="Outbound call activity over time">
+              <ChartBox id="chart-call-monthly" type="line" data={callMonthData} options={OPT_LINE} height={200}/>
+              <p className="sec-label mt-4">Top Reasons</p>
+              <div className="space-y-2">
+                {Object.entries(callReasonMap).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>(
+                  <div key={k} className="flex items-center gap-2 text-xs">
+                    <span className="text-slate-400 flex-1 truncate">{k}</span>
+                    <div className="pbar w-16"><div className="pbar-fill" style={{width:`${(v/S.totalCalls)*100}%`,background:'#f472b6'}}/></div>
+                    <span className="text-white w-6 text-right">{v}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </section>
+
+        {/* ── Patient Table ── */}
+        <section id="sec-table">
+          <p className="sec-label mt-2">Patient Risk Intelligence</p>
+          <Card title="🧑‍⚕️ Patient Cohort Detail" subtitle="Searchable · filterable by risk · paginated" badge={`${patientRows.length} patients`}>
+            <PatientTable rows={patientRows}/>
+          </Card>
+        </section>
+
+        <div className="mt-10 text-center text-xs text-slate-700 pb-4">
+          DocStribe · All metrics computed dynamically from Excel · Claude AI via user-provided API key · Zero hardcoded values
+        </div>
+      </div>
+
+      {/* ── Embedded Claude AI Chatbot ── */}
+      <ChatBot
+        data={data}
+        apiKey={apiKey}
+        onApiKeyChange={handleApiKeyChange}
+        open={chatOpen}
+        setOpen={setChatOpen}
+      />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   APP
+═══════════════════════════════════════════════════════════════ */
+function App(){
+  const [data,setData]=useState(null);
+  return data
+    ? <Dashboard data={data} onReset={()=>setData(null)}/>
+    : <UploadScreen onLoad={setData}/>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
