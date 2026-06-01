@@ -781,7 +781,7 @@ function ChatBot({ data, apiKey, onApiKeyChange, open, setOpen }){
     if(!welcomed&&data){
       setMsgs([{
         id:'welcome',role:'bot',type:'welcome',
-        narrative:`**DocStribe Patient Intelligence AI** 🏥\n\nAnalyzing **${data.summary.totalPatients} patients** · ${data.summary.totalVisits} visits · ${data.summary.totalActions} clinical actions · ${data.summary.totalCalls} calls.\n\nMode: **${apiKey?'Claude Sonnet AI (live)':'Smart Query Engine'}**${apiKey?'':' — add API key via ⚙ settings for Claude AI'}.`,
+        narrative:`**DocStribe Patient Intelligence AI** 🏥\n\nAnalyzing **${data.summary.totalPatients} patients** · ${data.summary.totalVisits} visits · ${data.summary.totalActions} clinical actions · ${data.summary.totalCalls} calls.\n\nMode: **Claude Sonnet · Live**.`,
         highlights:[],patients:[],appliedFilters:[],
       }]);
       setWelcomed(true);
@@ -796,23 +796,16 @@ function ChatBot({ data, apiKey, onApiKeyChange, open, setOpen }){
     setInput('');
     setThinking(true);
     try{
-      if(apiKey){
-        // ── Claude API path ──
-        const ctx=buildQueryContext(text.trim(),data);
-        const claudeText=await callClaude(apiKey,CHAT_SYSTEM,`Patient cohort data (JSON):\n${ctx}\n\nUser question: ${text.trim()}`,900);
-        const nlpResult=runNLPQuery(text.trim(),data); // for patient table
-        setMsgs(prev=>[...prev,{
-          id:Date.now()+'b',role:'bot',type:'claude',
-          narrative:claudeText,
-          patients:nlpResult.patients,total:nlpResult.total,
-          appliedFilters:nlpResult.appliedFilters,highlights:nlpResult.highlights,
-        }]);
-      } else {
-        // ── Rule-based fallback ──
-        await new Promise(r=>setTimeout(r,350));
-        const result=runNLPQuery(text.trim(),data);
-        setMsgs(prev=>[...prev,{id:Date.now()+'b',role:'bot',...result}]);
-      }
+      // ── Claude API path via Proxy / direct fallback ──
+      const ctx=buildQueryContext(text.trim(),data);
+      const claudeText=await callClaude(apiKey,CHAT_SYSTEM,`Patient cohort data (JSON):\n${ctx}\n\nUser question: ${text.trim()}`,900);
+      const nlpResult=runNLPQuery(text.trim(),data); // for patient table
+      setMsgs(prev=>[...prev,{
+        id:Date.now()+'b',role:'bot',type:'claude',
+        narrative:claudeText,
+        patients:nlpResult.patients,total:nlpResult.total,
+        appliedFilters:nlpResult.appliedFilters,highlights:nlpResult.highlights,
+      }]);
     }catch(e){
       const nlpResult=runNLPQuery(text.trim(),data);
       setMsgs(prev=>[...prev,{
@@ -962,7 +955,7 @@ function ChatBot({ data, apiKey, onApiKeyChange, open, setOpen }){
               id="chat-input"
               className="chat-input flex-1"
               rows={2}
-              placeholder={apiKey?"Ask Claude about your patients…":"Ask anything — add API key for Claude AI…"}
+              placeholder="Ask anything about your patients…"
               value={input}
               onChange={e=>setInput(e.target.value)}
               onKeyDown={handleKey}
