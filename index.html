@@ -665,13 +665,12 @@ function AIInsightsPanel({ data, apiKey, onOpenChat }){
   // Reset when data changes (new file loaded)
   useEffect(()=>{ setBriefing(''); setGenAt(null); setError(''); },[data]);
 
-  // Auto-generate when apiKey becomes available and briefing not yet generated
+  // Auto-generate when data is loaded (default Render proxy, no apiKey required)
   useEffect(()=>{
-    if(apiKey&&data&&!briefing&&!loading&&!error) generate();
-  },[apiKey, data]);
+    if(data&&!briefing&&!loading&&!error) generate();
+  },[data]);
 
   const generate=async()=>{
-    if(!apiKey){ setError('Enter your Anthropic API key in the 🤖 chat panel to generate.'); return; }
     setLoading(true); setError(''); setBriefing('');
     try{
       const ctx=buildBriefingContext(data);
@@ -680,28 +679,6 @@ function AIInsightsPanel({ data, apiKey, onOpenChat }){
     }catch(e){ setError(e.message); }
     finally{ setLoading(false); }
   };
-
-  if(!apiKey&&!briefing&&!error){
-    return(
-      <div className="briefing-card mb-5" style={{background:'rgba(9,14,30,.8)',border:'1px solid rgba(99,102,241,.15)'}}>
-        <div className="briefing-header flex items-center gap-4">
-          <div className="text-3xl">🧠</div>
-          <div className="flex-1">
-            <div className="text-base font-bold text-white" style={{fontFamily:'Space Grotesk'}}>AI Executive Intelligence Briefing</div>
-            <div className="text-xs text-slate-400 mt-0.5">Auto-generated CEO summary powered by Claude Sonnet · Built from your Excel data</div>
-          </div>
-          <button onClick={onOpenChat}
-            className="px-5 py-2.5 rounded-xl text-sm font-medium text-white flex-shrink-0"
-            style={{background:'linear-gradient(135deg,#6366f1,#4f46e5)',boxShadow:'0 2px 14px rgba(99,102,241,.4)'}}>
-            🔑 Add API Key →
-          </button>
-        </div>
-        <div className="px-6 py-4 text-xs text-slate-600">
-          Enter your Anthropic API key in the chat panel (⚙ settings) to auto-generate a CEO briefing from your {data.summary.totalPatients} patients across {data.summary.totalVisits} visits and {data.summary.totalActions} clinical actions.
-        </div>
-      </div>
-    );
-  }
 
   return(
     <div className="briefing-card mb-5">
@@ -867,8 +844,8 @@ function ChatBot({ data, apiKey, onApiKeyChange, open, setOpen }){
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold text-white" style={{fontFamily:'Space Grotesk'}}>Patient Intelligence AI</div>
             <div className="text-xs flex items-center gap-1.5 text-slate-500">
-              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{background:apiKey?'#34d399':'#fbbf24'}}/>
-              {apiKey?'Claude Sonnet · Live':'Smart Engine · No API key set'}
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{background:'#34d399'}}/>
+              Claude Sonnet · Live
             </div>
           </div>
           <button id="btn-chat-settings" onClick={()=>setShowKeyInput(k=>!k)} title="API key settings"
@@ -898,8 +875,8 @@ function ChatBot({ data, apiKey, onApiKeyChange, open, setOpen }){
                 className="px-3 py-2 rounded-lg text-xs font-medium text-white flex-shrink-0"
                 style={{background:'linear-gradient(135deg,#6366f1,#4f46e5)'}}>Save</button>
             </div>
-            {apiKey&&<p className="text-xs mt-1.5" style={{color:'#34d399'}}>✓ API key active — Claude Sonnet enabled · CEO briefing will auto-generate</p>}
-            {!apiKey&&<p className="text-xs text-slate-600 mt-1">Get your key at console.anthropic.com. Key is used only for direct API calls.</p>}
+            {apiKey&&<p className="text-xs mt-1.5" style={{color:'#34d399'}}>✓ API key active — using direct API key as override.</p>}
+            {!apiKey&&<p className="text-xs text-slate-600 mt-1">Optional direct API key fallback in case the Render proxy server is offline.</p>}
           </div>
         )}
 
@@ -1184,7 +1161,7 @@ function Dashboard({data,onReset}){
         {/* Page header */}
         <div className="py-7 fade-up">
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-1" style={{fontFamily:'Space Grotesk'}}>Patient Intelligence Dashboard</h1>
-          <p className="text-slate-400 text-sm">CXO-level analytics · All metrics dynamically computed · <span style={{color:apiKey?'#34d399':'#818cf8'}}>🤖 {apiKey?'Claude Sonnet AI active':'Click 🤖 and add API key for Claude AI + CEO briefing'}</span></p>
+          <p className="text-slate-400 text-sm">CXO-level analytics · All metrics dynamically computed · Claude Sonnet AI active</p>
         </div>
 
         {/* ── KPIs ── */}
