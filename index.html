@@ -422,6 +422,31 @@ function runNLPQuery(rawText,data){
    CLAUDE API  (API key entered by user — never hardcoded)
 ═══════════════════════════════════════════════════════════════ */
 async function callClaude(apiKey, system, userContent, maxTokens=1024){
+  // Try Render proxy server first
+  try {
+    const resp = await fetch('https://docstribe-backend.onrender.com/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: userContent }],
+        systemPrompt: system,
+        maxTokens
+      }),
+      signal: AbortSignal.timeout(30000)
+    });
+    if (resp.ok) {
+      const j = await resp.json();
+      if (j.error) throw new Error(j.error);
+      return j.text || '';
+    }
+  } catch (proxyErr) {
+    console.warn("Proxy failed, trying direct API fallback:", proxyErr);
+    if (!apiKey) {
+      throw new Error("Unable to connect to AI proxy. Please check your network or enter an Anthropic API key in settings.");
+    }
+  }
+
+  // Fallback to direct call with user API key
   const resp = await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{
